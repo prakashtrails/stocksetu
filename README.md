@@ -68,3 +68,15 @@ Each developer needs their own `.env.local`. Never put a secret or service-role 
 For future database changes, add a timestamped migration under `supabase/migrations/`, then run `npx supabase link --project-ref cruvlzqzhyvldoocwrrt`, `npx supabase db push --dry-run`, and `npx supabase db push`.
 
 Do **not** run `db push --include-seed` on this hosted project. `supabase/seed.sql`, `supabase/seed_haldiram.sql`, and the generated `deploy-*.sql` files contain demo accounts with known passwords and belong only in isolated demo/test databases.
+
+## Production deployment and users
+
+- Live site: https://stocksetu-seven.vercel.app
+- Vercel project: https://vercel.com/prakashtrails-projects/stocksetu
+- Source: https://github.com/prakashtrails/stocksetu (`main` deploys automatically).
+- Vercel Production environment variables: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. They must point to the hosted project above. Keep database passwords and service-role keys out of Vercel's `NEXT_PUBLIC_` variables.
+- Supabase Auth Site URL is the live site. Its redirect allowlist contains the live site, Vercel preview URLs under `prakashtrails-projects`, and localhost for development.
+
+The first owner signs up at `/signup`, confirms their email, and creates an organisation with at least one location at `/onboarding`. That account becomes the organisation's business admin. In `/dashboard/settings`, an admin creates team logins, chooses a role and optional location access, and shares the password privately. The database enforces the organisation's user limit. A platform admin can manage multiple organisations under `/admin`; that privilege is a separate `profiles.is_platform_admin` flag and should be assigned only to a verified owner account.
+
+Supabase's built-in email sender is for testing: it only sends to addresses on the Supabase project team and is limited to two emails per hour. Configure a custom SMTP provider in Supabase Authentication before public signup or password recovery is offered to customers. Team logins created by an organisation admin are immediately confirmed and do not send an email.

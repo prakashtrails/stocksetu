@@ -1,0 +1,15 @@
+export const reasonLabels: Record<string, string> = {
+  opening: "Opening stock",
+  receipt: "Goods received",
+  scan_in: "Scanned in",
+  transfer_in: "Transfer in",
+  transfer_out: "Transfer out",
+  dispatch: "Dispatched",
+  scan_out: "Scanned out",
+  consumption: "Used",
+  sale: "Sold",
+  wastage: "Wastage",
+  return: "Returned",
+  count: "Count adjustment",
+  correction: "Correction",
+};

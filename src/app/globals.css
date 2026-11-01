@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-instrument-serif);
+}
+
+@theme {
+  --color-ink: #0b1215;
+  --color-ink-soft: #1b2429;
+  --color-paper: #fafaf7;
+  --color-muted: #5b6470;
+  --color-line: #e7e5df;
+
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
+
+  --color-saffron-100: #fef3c7;
+  --color-saffron-400: #fbbf24;
+  --color-saffron-500: #f59e0b;
+  --color-saffron-600: #d97706;
+
+  --color-danger-100: #ffe4e6;
+  --color-danger-500: #f43f5e;
+  --color-danger-600: #e11d48;
+
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-scanline: scanline 2.4s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes scanline {
+    0%, 100% { transform: translateY(0); opacity: 0.2; }
+    50% { transform: translateY(56px); opacity: 1; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+body {
+  overflow-x: clip;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(11 18 21 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(11 18 21 / 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.bg-grid-dark {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.mask-fade-y {
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+}
+
+.mask-fade-x {
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

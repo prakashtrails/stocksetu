@@ -51,3 +51,20 @@ In Supabase → Authentication → URL Configuration, set the Site URL and add `
 ## Scripts
 
 `npm run dev` · `npm run build` · `npm run start` · `npm run lint` · `npx tsc --noEmit`
+
+## Fresh hosted Supabase project
+
+The active hosted project is **StockSetu** in `prakashtrails's Org`, Mumbai (`ap-south-1`): [Supabase dashboard](https://supabase.com/dashboard/project/cruvlzqzhyvldoocwrrt). Its project ref is `cruvlzqzhyvldoocwrrt`.
+
+All four files in `supabase/migrations/` have been applied to this new project. The hosted database starts without demo users or demo stock. To connect a local checkout, set these values in the ignored `.env.local` file:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://cruvlzqzhyvldoocwrrt.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key from Project Settings → API Keys>
+```
+
+Each developer needs their own `.env.local`. Never put a secret or service-role key in a `NEXT_PUBLIC_` variable. For email confirmation locally, add `http://localhost:3000/auth/callback` to the project's Auth redirect URLs.
+
+For future database changes, add a timestamped migration under `supabase/migrations/`, then run `npx supabase link --project-ref cruvlzqzhyvldoocwrrt`, `npx supabase db push --dry-run`, and `npx supabase db push`.
+
+Do **not** run `db push --include-seed` on this hosted project. `supabase/seed.sql`, `supabase/seed_haldiram.sql`, and the generated `deploy-*.sql` files contain demo accounts with known passwords and belong only in isolated demo/test databases.

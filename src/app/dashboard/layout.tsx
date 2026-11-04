@@ -23,6 +23,9 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     role: ctx.user.isPlatformAdmin ? "Platform admin" : roleLabels[ctx.role],
   };
   const orgs = ctx.memberships.map((m) => ({ id: m.org.id, name: m.org.name }));
+  if (!orgs.some((org) => org.id === ctx.org.id)) {
+    orgs.unshift({ id: ctx.org.id, name: ctx.org.name });
+  }
 
   return (
     <div className="flex min-h-screen flex-1">

@@ -50,6 +50,7 @@ export type AppContext = {
 };
 
 export const ORG_COOKIE = "ss_org";
+export const PLATFORM_ORG_COOKIE = "ss_platform_org";
 
 export const roleLabels: Record<Role, string> = {
   admin: "Business admin",
@@ -92,14 +93,16 @@ export const getContext = cache(async (): Promise<AppContext> => {
     }))
     .sort((a, b) => a.org.name.localeCompare(b.org.name));
 
-  const wanted = (await cookies()).get(ORG_COOKIE)?.value;
+  const cookieStore = await cookies();
+  const wanted = cookieStore.get(ORG_COOKIE)?.value;
+  const platformWanted = cookieStore.get(PLATFORM_ORG_COOKIE)?.value;
   const isPlatformAdmin = Boolean(profile?.is_platform_admin);
-  let active = memberships.find((m) => m.org.id === wanted) ?? null;
-  if (!active && isPlatformAdmin && wanted) {
+  let active: Membership | null = null;
+  if (isPlatformAdmin && platformWanted) {
     const { data: org } = await supabase
       .from("organisations")
       .select("id, name, kind, mode, modules, gstin, phone, city, plan, max_users, max_locations, active")
-      .eq("id", wanted)
+      .eq("id", platformWanted)
       .maybeSingle();
     if (org) {
       active = {
@@ -109,7 +112,7 @@ export const getContext = cache(async (): Promise<AppContext> => {
       };
     }
   }
-  active ??= memberships[0] ?? null;
+  active ??= memberships.find((m) => m.org.id === wanted) ?? memberships[0] ?? null;
 
   let allLocations: Location[] = [];
   if (active) {

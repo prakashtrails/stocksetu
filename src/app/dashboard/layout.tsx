@@ -20,7 +20,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     id: ctx.org.id,
     name: ctx.org.name,
     mode: `Mode ${ctx.org.mode} · ${modeLabels[ctx.org.mode]}`,
-    role: roleLabels[ctx.role],
+    role: ctx.user.isPlatformAdmin ? "Platform admin" : roleLabels[ctx.role],
   };
   const orgs = ctx.memberships.map((m) => ({ id: m.org.id, name: m.org.name }));
 
@@ -51,7 +51,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm leading-tight font-medium">{ctx.user.name}</p>
-              <p className="text-xs text-muted">{roleLabels[ctx.role]}</p>
+              <p className="text-xs text-muted">{current.role}</p>
             </div>
             <span className="grid size-9 place-items-center rounded-full bg-brand-600 text-sm font-semibold text-white">
               {initials || "?"}

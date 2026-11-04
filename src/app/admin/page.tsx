@@ -4,21 +4,39 @@ import { PasswordField } from "@/components/app/password-field";
 import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { Badge, Card, CardHeader, Field, inputClass, Notice, PageHeader, selectClass, Stat, Table, Td, Th } from "@/components/ui/kit";
 import { getContext, modeLabels, type Mode } from "@/lib/context";
-import { dateOnly, daysAgo } from "@/lib/format";
+import { dateOnly, rupees } from "@/lib/format";
 import { moduleInfo, modulesFor } from "@/lib/modules-info";
 import { createOrg } from "./actions";
 
 export const metadata: Metadata = { title: "Platform admin" };
 
+type OrgMetric = {
+  org_id: string;
+  user_count: number;
+  location_count: number;
+  recipe_count: number;
+  stocked_products: number;
+  stock_value_paise: number;
+  stock_events_7d: number;
+  sales_7d_paise: number;
+  sales_30d_paise: number;
+  portions_30d: number;
+};
+
+type DailySale = { sale_day: string; revenue_paise: number; portions: number };
+
 export default async function AdminPage() {
   const ctx = await getContext();
-  const [{ data: orgs, error: orgsError }, { data: members }, { data: moves }, { data: locs }] = await Promise.all([
+  const [{ data: orgs, error: orgsError }, { data: metricRows, error: metricsError }, { data: dailyRows, error: dailyError }] = await Promise.all([
     ctx.supabase.from("organisations").select("id, name, kind, mode, plan, max_users, max_locations, active, city, created_at").order("created_at"),
-    ctx.supabase.from("org_members").select("org_id"),
-    ctx.supabase.from("stock_movements").select("org_id").gte("occurred_at", daysAgo(7)),
-    ctx.supabase.from("locations").select("org_id").eq("archived", false),
+    ctx.supabase.rpc("platform_org_metrics"),
+    ctx.supabase.rpc("platform_daily_sales"),
   ]);
-  const count = (rows: { org_id: string }[] | null, id: string) => (rows ?? []).filter((r) => r.org_id === id).length;
+  const metrics = new Map(((metricRows ?? []) as OrgMetric[]).map((row) => [row.org_id, row]));
+  const daily = (dailyRows ?? []) as DailySale[];
+  const maxRevenue = Math.max(1, ...daily.map((row) => Number(row.revenue_paise)));
+  const businesses = (orgs ?? []).filter((org) => org.kind === "business");
+  const total = (field: keyof OrgMetric) => businesses.reduce((sum, org) => sum + Number(metrics.get(org.id)?.[field] ?? 0), 0);
 
   return (
     <div>
@@ -29,19 +47,36 @@ export default async function AdminPage() {
       {orgsError && (
         <div className="mb-6">
           <Notice tone="red">
-            Could not load organisations: {orgsError.message}. If a column is missing, the latest database upgrade (supabase/deploy-02-haldiram.sql) has not been run yet.
+            Could not load organisations: {orgsError.message}.
           </Notice>
         </div>
       )}
-      <div className="mb-6 grid gap-4 sm:grid-cols-4">
-        <Stat label="Organisations" value={orgs?.length ?? 0} />
-        <Stat label="Businesses" value={(orgs ?? []).filter((o) => o.kind === "business").length} />
-        <Stat label="Suppliers" value={(orgs ?? []).filter((o) => o.kind === "supplier").length} />
-        <Stat label="Stock events (7 days)" value={moves?.length ?? 0} />
+      {(metricsError || dailyError) && (
+        <div className="mb-6"><Notice tone="red">Could not load platform analytics: {metricsError?.message ?? dailyError?.message}</Notice></div>
+      )}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Stat label="Businesses" value={businesses.length} />
+        <Stat label="Suppliers" value={(orgs ?? []).filter((org) => org.kind === "supplier").length} />
+        <Stat label="Sales (30 days)" value={rupees(total("sales_30d_paise"))} />
+        <Stat label="Stock value" value={rupees(total("stock_value_paise"))} />
+        <Stat label="Stock events (7 days)" value={total("stock_events_7d")} />
       </div>
 
+      <Card className="mb-8 p-5">
+        <h2 className="font-semibold">Sales across businesses</h2>
+        <p className="mt-1 text-sm text-muted">Last 14 calendar days · recorded recipe sales</p>
+        <div className="mt-5 flex h-40 items-end gap-1.5" role="img" aria-label="Daily sales revenue across all businesses for the last 14 days">
+          {daily.map((row) => (
+            <div key={row.sale_day} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`${row.sale_day}: ${rupees(row.revenue_paise)}, ${row.portions} portions`}>
+              <div className="w-full rounded-t bg-brand-500" style={{ height: `${Math.max(3, Number(row.revenue_paise) / maxRevenue * 115)}px` }} />
+              <span className="text-[10px] text-muted">{row.sale_day.slice(5)}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
       <Card className="mb-8">
-        <CardHeader title="Workspaces" description="Open one to change its plan, team or connections" />
+        <CardHeader title="Business overview" description="Open any workspace to manage its plan, team, locations and connections. Values reflect recorded data." />
         <Table>
           <thead>
             <tr>
@@ -50,6 +85,10 @@ export default async function AdminPage() {
               <Th>Plan</Th>
               <Th>Users</Th>
               <Th>Locations</Th>
+              <Th>Products</Th>
+              <Th>Recipes</Th>
+              <Th>Stock value</Th>
+              <Th>Sales (30d)</Th>
               <Th>Activity (7d)</Th>
               <Th>Since</Th>
             </tr>
@@ -62,6 +101,7 @@ export default async function AdminPage() {
                     {o.name}
                   </Link>
                   <p className="text-xs text-muted">{o.city ?? ""}</p>
+                  {o.name.includes("(Demo)") && <Badge tone="amber">Sample data</Badge>}
                 </Td>
                 <Td>
                   <Badge tone={o.kind === "supplier" ? "blue" : "green"}>
@@ -72,12 +112,16 @@ export default async function AdminPage() {
                   {o.plan} {!o.active && <Badge tone="red">suspended</Badge>}
                 </Td>
                 <Td>
-                  {count(members, o.id)} / {o.max_users}
+                  {metrics.get(o.id)?.user_count ?? 0} / {o.max_users}
                 </Td>
                 <Td>
-                  {count(locs, o.id)} / {o.max_locations}
+                  {metrics.get(o.id)?.location_count ?? 0} / {o.max_locations}
                 </Td>
-                <Td>{count(moves, o.id)}</Td>
+                <Td>{metrics.get(o.id)?.stocked_products ?? 0}</Td>
+                <Td>{metrics.get(o.id)?.recipe_count ?? 0}</Td>
+                <Td>{rupees(metrics.get(o.id)?.stock_value_paise)}</Td>
+                <Td>{rupees(metrics.get(o.id)?.sales_30d_paise)}</Td>
+                <Td>{metrics.get(o.id)?.stock_events_7d ?? 0}</Td>
                 <Td>{dateOnly(o.created_at)}</Td>
               </tr>
             ))}

@@ -56,7 +56,7 @@ In Supabase → Authentication → URL Configuration, set the Site URL and add `
 
 The active hosted project is **StockSetu** in `prakashtrails's Org`, Mumbai (`ap-south-1`): [Supabase dashboard](https://supabase.com/dashboard/project/cruvlzqzhyvldoocwrrt). Its project ref is `cruvlzqzhyvldoocwrrt`.
 
-All four files in `supabase/migrations/` have been applied to this new project. The hosted database starts without demo users or demo stock. To connect a local checkout, set these values in the ignored `.env.local` file:
+All migrations in `supabase/migrations/` are applied to this project. To connect a local checkout, set these values in the ignored `.env.local` file:
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://cruvlzqzhyvldoocwrrt.supabase.co
@@ -80,3 +80,9 @@ Do **not** run `db push --include-seed` on this hosted project. `supabase/seed.s
 The first owner signs up at `/signup`, confirms their email, and creates an organisation with at least one location at `/onboarding`. That account becomes the organisation's business admin. In `/dashboard/settings`, an admin creates team logins, chooses a role and optional location access, and shares the password privately. The database enforces the organisation's user limit. A platform admin can manage multiple organisations under `/admin`; that privilege is a separate `profiles.is_platform_admin` flag and should be assigned only to a verified owner account.
 
 Supabase's built-in email sender is for testing: it only sends to addresses on the Supabase project team and is limited to two emails per hour. Configure a custom SMTP provider in Supabase Authentication before public signup or password recovery is offered to customers. Team logins created by an organisation admin are immediately confirmed and do not send an email.
+
+### Platform owner and sample workspace
+
+`prakashgovtportal@gmail.com` is the verified platform admin. At `/admin` it can see every organisation's users, locations, stock activity, stock value, recipes and recorded sales. Open an organisation to see its 14-day sales trend, change plan limits or modules, manage its users, and enter its operational workspace without taking a user seat. Business admins only see their own organisation and permitted locations.
+
+`Haldiram (Demo)` is synthetic sample data, not a real customer or real sales. `supabase/demo_haldiram.sql` creates three locations, 15 catalogue products, four recipes, 10 days of recorded sales, recent stock movements, suppliers, a purchase order and an in-transit transfer. Five demo logins were generated with separate random passwords by `scripts/create-haldiram-demo-users.ps1`. The local credential file is `supabase/.temp/haldiram-demo-credentials.txt`; it is ignored by Git and must be shared only with authorised testers. The platform owner's existing password was not changed. The sample SQL skips an existing `Haldiram (Demo)` workspace to avoid duplication.

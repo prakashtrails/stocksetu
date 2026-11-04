@@ -93,7 +93,23 @@ export const getContext = cache(async (): Promise<AppContext> => {
     .sort((a, b) => a.org.name.localeCompare(b.org.name));
 
   const wanted = (await cookies()).get(ORG_COOKIE)?.value;
-  const active = memberships.find((m) => m.org.id === wanted) ?? memberships[0] ?? null;
+  const isPlatformAdmin = Boolean(profile?.is_platform_admin);
+  let active = memberships.find((m) => m.org.id === wanted) ?? null;
+  if (!active && isPlatformAdmin && wanted) {
+    const { data: org } = await supabase
+      .from("organisations")
+      .select("id, name, kind, mode, modules, gstin, phone, city, plan, max_users, max_locations, active")
+      .eq("id", wanted)
+      .maybeSingle();
+    if (org) {
+      active = {
+        org: org as Org,
+        role: org.kind === "supplier" ? "supplier_admin" : "admin",
+        location_ids: null,
+      };
+    }
+  }
+  active ??= memberships[0] ?? null;
 
   let allLocations: Location[] = [];
   if (active) {
@@ -117,7 +133,7 @@ export const getContext = cache(async (): Promise<AppContext> => {
       id: auth.user.id,
       email: auth.user.email ?? "",
       name,
-      isPlatformAdmin: Boolean(profile?.is_platform_admin),
+      isPlatformAdmin,
     },
     memberships,
     org: active?.org ?? null,
@@ -133,7 +149,7 @@ export const getContext = cache(async (): Promise<AppContext> => {
 export async function requireOrg() {
   const ctx = await getContext();
   if (!ctx.org || !ctx.role) redirect(ctx.user.isPlatformAdmin ? "/admin" : "/onboarding");
-  if (!ctx.org.active) redirect("/suspended");
+  if (!ctx.org.active && !ctx.user.isPlatformAdmin) redirect("/suspended");
   return ctx as AppContext & { org: Org; role: Role };
 }
 

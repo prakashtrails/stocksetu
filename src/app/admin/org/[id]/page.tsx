@@ -1,15 +1,27 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { archiveLocation, addLocation } from "@/app/dashboard/settings/actions";
+import { switchOrg } from "@/app/dashboard/actions";
 import { TeamPanel } from "@/components/app/team-panel";
 import { ActionForm, SubmitButton } from "@/components/ui/action-form";
-import { Badge, Card, CardHeader, Field, inputClass, Notice, PageHeader, selectClass } from "@/components/ui/kit";
+import { Badge, Card, CardHeader, Field, inputClass, Notice, PageHeader, selectClass, Stat } from "@/components/ui/kit";
 import { getContext, modeLabels, type Mode } from "@/lib/context";
-import { dateTime } from "@/lib/format";
+import { dateTime, rupees } from "@/lib/format";
 import { moduleInfo, modulesFor } from "@/lib/modules-info";
 import { linkSupplier, setOrgPlan } from "../../actions";
 
 export const metadata: Metadata = { title: "Organisation" };
+
+type OrgMetric = {
+  org_id: string;
+  sales_30d_paise: number;
+  stock_value_paise: number;
+  stocked_products: number;
+  recipe_count: number;
+  portions_30d: number;
+};
+
+type DailySale = { sale_day: string; revenue_paise: number; portions: number };
 
 export default async function AdminOrgPage({ params, searchParams }: PageProps<"/admin/org/[id]">) {
   const ctx = await getContext();
@@ -22,14 +34,19 @@ export default async function AdminOrgPage({ params, searchParams }: PageProps<"
     .maybeSingle();
   if (!org) notFound();
 
-  const [{ data: locations }, { data: suppliers }, { data: customers }, { data: allOrgs }, { data: audit }] = await Promise.all([
+  const [{ data: locations }, { data: suppliers }, { data: customers }, { data: allOrgs }, { data: audit }, { data: metricRows, error: metricsError }, { data: dailyRows, error: dailyError }] = await Promise.all([
     ctx.supabase.from("locations").select("id, name, kind").eq("org_id", id).eq("archived", false).order("name"),
     ctx.supabase.from("suppliers").select("id, name, linked_org_id, phone").eq("org_id", id).order("name"),
     ctx.supabase.from("customers").select("id, name, linked_org_id, phone").eq("org_id", id).order("name"),
     ctx.supabase.from("organisations").select("id, name, kind").order("name"),
     ctx.supabase.from("audit_log").select("id, action, created_at").eq("org_id", id).order("created_at", { ascending: false }).limit(8),
+    ctx.supabase.rpc("platform_org_metrics"),
+    ctx.supabase.rpc("platform_daily_sales", { p_org: id }),
   ]);
   const kind = org.kind as "business" | "supplier";
+  const metrics = ((metricRows ?? []) as OrgMetric[]).find((row) => row.org_id === id);
+  const daily = (dailyRows ?? []) as DailySale[];
+  const maxRevenue = Math.max(1, ...daily.map((row) => Number(row.revenue_paise)));
   const otherSide = (allOrgs ?? []).filter((o) => o.kind !== kind);
   const linkedIds = new Set([...(suppliers ?? []), ...(customers ?? [])].map((x) => x.linked_org_id).filter(Boolean));
 
@@ -39,13 +56,44 @@ export default async function AdminOrgPage({ params, searchParams }: PageProps<"
         back={{ href: "/admin", label: "All organisations" }}
         title={org.name}
         description={`Mode ${org.mode} · ${modeLabels[org.mode as Mode]}${org.city ? ` · ${org.city}` : ""}`}
-        actions={org.active ? <Badge tone="green">Active</Badge> : <Badge tone="red">Suspended</Badge>}
+        actions={
+          <>
+            {org.active ? <Badge tone="green">Active</Badge> : <Badge tone="red">Suspended</Badge>}
+            <form action={switchOrg.bind(null, org.id)}>
+              <button type="submit" className="rounded-xl bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+                Open workspace
+              </button>
+            </form>
+          </>
+        }
       />
       {sp.created && (
         <div className="mb-6">
           <Notice tone="green">Workspace created. Share the admin login you set — they can sign in now and create their team.</Notice>
         </div>
       )}
+
+      {(metricsError || dailyError) && (
+        <div className="mb-6"><Notice tone="red">Could not load analytics: {metricsError?.message ?? dailyError?.message}</Notice></div>
+      )}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Sales (30 days)" value={rupees(metrics?.sales_30d_paise)} />
+        <Stat label="Stock value" value={rupees(metrics?.stock_value_paise)} />
+        <Stat label="Active products" value={metrics?.stocked_products ?? 0} />
+        <Stat label="Recipes" value={metrics?.recipe_count ?? 0} />
+      </div>
+      <Card className="mb-6 p-5">
+        <h2 className="font-semibold">Daily recipe sales</h2>
+        <p className="mt-1 text-sm text-muted">Last 14 calendar days · {metrics?.portions_30d ?? 0} portions in the last 30 days</p>
+        <div className="mt-5 flex h-40 items-end gap-1.5" role="img" aria-label={`Daily sales revenue for ${org.name} over the last 14 days`}>
+          {daily.map((row) => (
+            <div key={row.sale_day} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`${row.sale_day}: ${rupees(row.revenue_paise)}, ${row.portions} portions`}>
+              <div className="w-full rounded-t bg-brand-500" style={{ height: `${Math.max(3, Number(row.revenue_paise) / maxRevenue * 115)}px` }} />
+              <span className="text-[10px] text-muted">{row.sale_day.slice(5)}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <div className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
